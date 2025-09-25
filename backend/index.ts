@@ -3,10 +3,15 @@ import cors from "cors";
 import bodyParser from "body-parser";
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: "*",
+  })
+);
 app.use(bodyParser.json());
 
 app.post("/analyze", (req, res) => {
+  console.log("Received minuteSummaries:", req.body);
   const data: { timestamp: number; rms: number }[] = req.body;
   if (!Array.isArray(data))
     return res.status(400).json({ error: "Expected array" });
@@ -39,4 +44,6 @@ function analyzeSleep(data: { timestamp: number; rms: number }[]) {
   return { duration: durationHrs, efficiency, quality };
 }
 
-app.listen(3000, () => console.log("Backend listening on port 3000"));
+app.listen(3000, "0.0.0.0", () =>
+  console.log("Backend listening on port 3000")
+);

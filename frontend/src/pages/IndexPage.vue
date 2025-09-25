@@ -93,7 +93,7 @@ async function stopTracking() {
   status.value = 'stopped';
 
   try {
-    const res = await axios.post('http://localhost:3000/analyze', minuteSummaries);
+    const res = await axios.post('http://192.168.200.95:3000/analyze', minuteSummaries);
     results.value = res.data;
   } catch (err) {
     console.error(err);
