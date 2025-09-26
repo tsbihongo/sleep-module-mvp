@@ -11,7 +11,7 @@ app.use(
 app.use(bodyParser.json());
 
 app.post("/analyze", (req, res) => {
-  console.log("Received minuteSummaries:", req.body);
+  console.log("Received minuteSummaries:", req.body); //making sure my console is showing received data
   const data: { timestamp: number; rms: number }[] = req.body;
   if (!Array.isArray(data))
     return res.status(400).json({ error: "Expected array" });

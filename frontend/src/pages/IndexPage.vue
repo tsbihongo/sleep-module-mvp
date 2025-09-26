@@ -35,7 +35,7 @@ const results = ref<{ duration: number; efficiency: number; quality: string } | 
 let samples: { timestamp: number; x: number; y: number; z: number }[] = [];
 let minuteSummaries: { timestamp: number; rms: number }[] = [];
 let timer: ReturnType<typeof setInterval> | null = null;
-
+//this is the onmotion function
 function throttleTo1Hz(ev: DeviceMotionEvent) {
   const now = Date.now();
   if (!throttleTo1Hz.lastTs || now - throttleTo1Hz.lastTs >= 1000) {
@@ -80,7 +80,7 @@ function startDeviceMotion() {
 
   timer = setInterval(() => {
     flushSamples();
-  }, 10_000); //i am flushing every 10 seconds for testing
+  }, 20_000); //i am flushing every 20 seconds for easier testing, feel free to change this for longer periods
 }
 
 // Process samples into one minute summary
@@ -112,7 +112,7 @@ const stopTracking = async () => {
   console.log('Sending to backend:', minuteSummaries);
 
   try {
-    const res = await axios.post('http://192.168.0.104:3000/analyze', minuteSummaries);
+    const res = await axios.post('http://localhost:3000/analyze', minuteSummaries); //if POST request is not sending the data to your backend, please change localhost to your device's IP.
     console.log('Backend response:', res.data);
     results.value = res.data;
   } catch (err) {
