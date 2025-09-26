@@ -2,9 +2,15 @@
   <q-page padding>
     <div class="q-pa-md">
       <h5>Sleep Tracker</h5>
+
       <q-btn label="Start Tracking" @click="startTracking" color="primary" class="q-mr-md" />
       <q-btn label="Stop Tracking" @click="stopTracking" color="negative" />
+
       <div class="q-mt-md">Status: {{ status }}</div>
+      <div v-if="samples.length">
+        <h6>Last sample:</h6>
+        <pre>{{ samples[samples.length - 1] }}</pre>
+      </div>
 
       <div v-if="results">
         <q-card class="q-mt-md">
@@ -26,9 +32,8 @@ import axios from 'axios';
 const status = ref('idle');
 const results = ref<{ duration: number; efficiency: number; quality: string } | null>(null);
 
-const samples: { timestamp: number; x: number; y: number; z: number }[] = [];
-const minuteSummaries: { timestamp: number; rms: number }[] = [];
-
+let samples: { timestamp: number; x: number; y: number; z: number }[] = [];
+let minuteSummaries: { timestamp: number; rms: number }[] = [];
 let timer: ReturnType<typeof setInterval> | null = null;
 
 function throttleTo1Hz(ev: DeviceMotionEvent) {
@@ -38,15 +43,18 @@ function throttleTo1Hz(ev: DeviceMotionEvent) {
     const a = ev.acceleration || ev.accelerationIncludingGravity;
     if (!a) return;
     samples.push({ timestamp: now, x: a.x || 0, y: a.y || 0, z: a.z || 0 });
+    console.log('Sample captured:', { x: a.x, y: a.y, z: a.z });
   }
 }
 throttleTo1Hz.lastTs = 0;
 
-// Changed to normal function because no actual await at top-level
-function startTracking() {
+const startTracking = () => {
+  results.value = null;
+  minuteSummaries = [];
+  samples = [];
+
   status.value = 'requesting permission';
 
-  // iOS 13+ requires permission inside a user gesture
   if (typeof DeviceMotionEvent !== 'undefined' && 'requestPermission' in DeviceMotionEvent) {
     const requestPermission = (
       DeviceMotionEvent as unknown as {
@@ -64,39 +72,51 @@ function startTracking() {
   } else {
     startDeviceMotion();
   }
-}
+};
 
 function startDeviceMotion() {
   window.addEventListener('devicemotion', throttleTo1Hz, { passive: true });
   status.value = 'tracking';
 
   timer = setInterval(() => {
-    const now = Date.now();
-    const oneMinuteAgo = now - 60_000;
-    const minuteSamples = samples.filter((s) => s.timestamp >= oneMinuteAgo);
-    if (!minuteSamples.length) return;
-
-    const rms = Math.sqrt(
-      minuteSamples.reduce((acc, s) => acc + (s.x ** 2 + s.y ** 2 + s.z ** 2) / 3, 0) /
-        minuteSamples.length,
-    );
-    minuteSummaries.push({ timestamp: now, rms });
-  }, 60_000);
+    flushSamples();
+  }, 10_000); //i am flushing every 10 seconds for testing
 }
 
-async function stopTracking() {
+// Process samples into one minute summary
+function flushSamples() {
+  if (!samples.length) return;
+
+  const rms = Math.sqrt(
+    samples.reduce((acc, s) => acc + (s.x ** 2 + s.y ** 2 + s.z ** 2) / 3, 0) / samples.length,
+  );
+  minuteSummaries.push({ timestamp: Date.now(), rms });
+  samples = []; // clear after flushing
+}
+
+const stopTracking = async () => {
   window.removeEventListener('devicemotion', throttleTo1Hz);
   if (timer) {
     clearInterval(timer);
     timer = null;
   }
+
+  // Flush whatever’s left, even if <10 seconds because its showing 0 still
+  if (samples.length) {
+    flushSamples();
+  } else if (!minuteSummaries.length) {
+    minuteSummaries.push({ timestamp: Date.now(), rms: 0 });
+  }
   status.value = 'stopped';
 
+  console.log('Sending to backend:', minuteSummaries);
+
   try {
-    const res = await axios.post('http://192.168.200.95:3000/analyze', minuteSummaries);
+    const res = await axios.post('http://192.168.0.104:3000/analyze', minuteSummaries);
+    console.log('Backend response:', res.data);
     results.value = res.data;
   } catch (err) {
     console.error(err);
   }
-}
+};
 </script>

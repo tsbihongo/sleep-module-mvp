@@ -22,7 +22,8 @@ app.post("/analyze", (req, res) => {
 
 function analyzeSleep(data: { timestamp: number; rms: number }[]) {
   data.sort((a, b) => a.timestamp - b.timestamp);
-  const threshold = 0.05 * 9.80665; // ~0.05g in m/s²
+
+  const threshold = 1.0; // adjust this for sensitivity
   let lowMinutes = 0;
   let start: number | null = null;
   let end: number | null = null;
@@ -37,6 +38,7 @@ function analyzeSleep(data: { timestamp: number; rms: number }[]) {
 
   const durationHrs = start && end ? (end - start) / 1000 / 3600 : 0;
   const efficiency = data.length ? (lowMinutes / data.length) * 100 : 0;
+
   let quality = "Low";
   if (efficiency > 90) quality = "High";
   else if (efficiency > 75) quality = "Medium";
