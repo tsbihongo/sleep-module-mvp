@@ -112,7 +112,7 @@ const stopTracking = async () => {
   console.log('Sending to backend:', minuteSummaries);
 
   try {
-    const res = await axios.post('http://localhost:3000/analyze', minuteSummaries); //if POST request is not sending the data to your backend, please change localhost to your device's IP.
+    const res = await axios.post('/api/analyze', minuteSummaries); //if POST request is not sending the data to your backend, please change localhost to your device's IP.
     console.log('Backend response:', res.data);
     results.value = res.data;
   } catch (err) {
