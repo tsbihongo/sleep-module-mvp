@@ -168,7 +168,7 @@ const stopTracking = async () => {
   console.log('Sending to backend:', minuteSummaries);
 
   try {
-    const res = await axios.post('/api/analyze', minuteSummaries);
+    const res = await axios.post('/api/analyze', minuteSummaries); //I already modified the config file to redirect api to my backend. This is done because the data also needs to send to backend via HTTPS, and ngrok cannot facilitate another HTTPS for a free account to host both the frontend and the backend.
     console.log('Backend response:', res.data);
     results.value = res.data;
   } catch (err) {
