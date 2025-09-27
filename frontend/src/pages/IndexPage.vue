@@ -7,17 +7,34 @@
       <q-btn label="Stop Tracking" @click="stopTracking" color="negative" />
 
       <div class="q-mt-md">Status: {{ status }}</div>
+
+      <!-- Show last sample for debugging -->
       <div v-if="samples.length">
         <h6>Last sample:</h6>
         <pre>{{ samples[samples.length - 1] }}</pre>
       </div>
 
+      <!-- Results card -->
       <div v-if="results">
         <q-card class="q-mt-md">
           <q-card-section>
             <div><strong>Duration:</strong> {{ results.duration.toFixed(2) }} hrs</div>
             <div><strong>Efficiency:</strong> {{ results.efficiency.toFixed(1) }}%</div>
             <div><strong>Quality:</strong> {{ results.quality }}</div>
+          </q-card-section>
+
+          <!-- Details Section box for better observation -->
+          <q-separator />
+
+          <q-card-section>
+            <div class="text-subtitle2 q-mb-sm">Details:</div>
+            <q-list dense bordered separator>
+              <q-item v-for="(val, key) in results.details" :key="key">
+                <q-item-section>
+                  <strong>{{ key }}:</strong> {{ formatValue(val) }}
+                </q-item-section>
+              </q-item>
+            </q-list>
           </q-card-section>
         </q-card>
       </div>
@@ -29,13 +46,49 @@
 import { ref } from 'vue';
 import axios from 'axios';
 
-const status = ref('idle');
-const results = ref<{ duration: number; efficiency: number; quality: string } | null>(null);
+// Types
+interface Sample {
+  timestamp: number;
+  x: number;
+  y: number;
+  z: number;
+}
 
-let samples: { timestamp: number; x: number; y: number; z: number }[] = [];
-let minuteSummaries: { timestamp: number; rms: number }[] = [];
+interface MinuteSummary {
+  timestamp: number;
+  rms: number;
+}
+//what i will show
+interface SleepResults {
+  duration: number;
+  efficiency: number;
+  quality: string;
+  details?: Record<string, unknown>;
+}
+
+// State
+const status = ref('Idle. Please start tracking when ready.');
+const results = ref<SleepResults | null>(null);
+
+let samples: Sample[] = [];
+let minuteSummaries: MinuteSummary[] = [];
 let timer: ReturnType<typeof setInterval> | null = null;
-//this is the onmotion function
+
+// Formatting helper for showing
+function formatValue(val: unknown) {
+  if (typeof val === 'number') {
+    return val.toFixed(2);
+  }
+  if (Array.isArray(val)) {
+    return val.join(', ');
+  }
+  if (typeof val === 'object' && val !== null) {
+    return JSON.stringify(val, null, 2);
+  }
+  return String(val);
+}
+
+// this is my onmotion function
 function throttleTo1Hz(ev: DeviceMotionEvent) {
   const now = Date.now();
   if (!throttleTo1Hz.lastTs || now - throttleTo1Hz.lastTs >= 1000) {
@@ -48,6 +101,7 @@ function throttleTo1Hz(ev: DeviceMotionEvent) {
 }
 throttleTo1Hz.lastTs = 0;
 
+// Start tracking
 const startTracking = () => {
   results.value = null;
   minuteSummaries = [];
@@ -74,16 +128,17 @@ const startTracking = () => {
   }
 };
 
+// Start listening to motion
 function startDeviceMotion() {
   window.addEventListener('devicemotion', throttleTo1Hz, { passive: true });
-  status.value = 'tracking';
+  status.value = 'Tracking. Your motion sensors are now collection data.';
 
   timer = setInterval(() => {
     flushSamples();
-  }, 20_000); //i am flushing every 20 seconds for easier testing, feel free to change this for longer periods
+  }, 20_000); // flushing every 20s for testing and demo
 }
 
-// Process samples into one minute summary
+// Flush collected samples into RMS summary
 function flushSamples() {
   if (!samples.length) return;
 
@@ -94,6 +149,7 @@ function flushSamples() {
   samples = []; // clear after flushing
 }
 
+// Stop tracking
 const stopTracking = async () => {
   window.removeEventListener('devicemotion', throttleTo1Hz);
   if (timer) {
@@ -101,18 +157,18 @@ const stopTracking = async () => {
     timer = null;
   }
 
-  // Flush whatever’s left, even if <10 seconds because its showing 0 still
+  // Flush any remaining samples
   if (samples.length) {
     flushSamples();
   } else if (!minuteSummaries.length) {
     minuteSummaries.push({ timestamp: Date.now(), rms: 0 });
   }
-  status.value = 'stopped';
+  status.value = 'Stopped Tracking. Motion sensors have stopped collecting data.';
 
   console.log('Sending to backend:', minuteSummaries);
 
   try {
-    const res = await axios.post('/api/analyze', minuteSummaries); //if POST request is not sending the data to your backend, please change localhost to your device's IP.
+    const res = await axios.post('/api/analyze', minuteSummaries);
     console.log('Backend response:', res.data);
     results.value = res.data;
   } catch (err) {
